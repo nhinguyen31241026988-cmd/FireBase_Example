@@ -4,8 +4,6 @@ import android.os.Bundle;
 import android.util.Log;
 
 import androidx.activity.EdgeToEdge;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -13,24 +11,21 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseApp;
-import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
-import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 public class ShowDataActivity extends AppCompatActivity {
+    private static final String TAG = "ShowDataActivity";
+
     FirebaseFirestore db;
     RecyclerView recyclerView;
-    List<User> users = new ArrayList();
+    List<Article> articles = new ArrayList<>();
+    ListenerRegistration registration;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,43 +39,39 @@ public class ShowDataActivity extends AppCompatActivity {
         });
 
         FirebaseApp.initializeApp(this);
-        //users.add(new User("default", "000"));
 
         recyclerView = findViewById(R.id.reclyclerview);
-        UserViewAdapter adapter = new UserViewAdapter(getBaseContext(), users);
-        recyclerView.setLayoutManager(new LinearLayoutManager(getBaseContext()));
+        ArticleViewAdapter adapter = new ArticleViewAdapter(this, articles);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
         db = FirebaseFirestore.getInstance();
-        /*db.collection("users").get().addOnCompleteListener(new OnCompleteListener<QuerySnapshot>() {
-          @Override
-          public void onComplete(@NonNull Task<QuerySnapshot> task) {
-            if(task.isSuccessful()){
-              users.clear();
-              for(QueryDocumentSnapshot q : task.getResult()){
-                Map<String, Object> data = q.getData();
-                User user = new User((String)data.get("name"), (String)data.get("phone"));
-                users.add(user);
-              }
-              adapter.update(users);
-              adapter.notifyDataSetChanged();
-            }
-          }
-        });*/
-      db.collection("users").addSnapshotListener(new EventListener<QuerySnapshot>() {
-        @Override
-        public void onEvent(@Nullable QuerySnapshot snapshots, @Nullable FirebaseFirestoreException error) {
-          if (snapshots != null) {
-            users.clear();
-            for (QueryDocumentSnapshot q : snapshots) {
-              Map<String, Object> data = q.getData();
-              User user = new User((String) data.get("name"), (String) data.get("phone"));
-              users.add(user);
-            }
-            adapter.update(users);
-            adapter.notifyDataSetChanged();
-          }
+        registration = db.collection(MainActivity.COLLECTION_ARTICLES)
+                .addSnapshotListener((snapshots, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "Listen failed", error);
+                        return;
+                    }
+                    if (snapshots != null) {
+                        articles.clear();
+                        for (QueryDocumentSnapshot q : snapshots) {
+                            Article article = q.toObject(Article.class);
+                            if (article.getId() == null) {
+                                article.setId(q.getId());
+                            }
+                            articles.add(article);
+                        }
+                        adapter.update(articles);
+                        adapter.notifyDataSetChanged();
+                    }
+                });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (registration != null) {
+            registration.remove();
         }
-      });
     }
 }

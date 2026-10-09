@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -13,12 +14,15 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+  public static final String COLLECTION_ARTICLES = "articles";
+
   FirebaseFirestore db;
   Button btAdd, btShow;
-  EditText etName, etPhone;
+  EditText etTitle, etContent, etImageUrl;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -35,8 +39,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     db = FirebaseFirestore.getInstance();
     btAdd = findViewById(R.id.btAdd);
     btShow = findViewById(R.id.btShow);
-    etName = findViewById(R.id.etName);
-    etPhone = findViewById(R.id.etPhone);
+    etTitle = findViewById(R.id.etTitle);
+    etContent = findViewById(R.id.etContent);
+    etImageUrl = findViewById(R.id.etImageUrl);
     btAdd.setOnClickListener(this);
     btShow.setOnClickListener(this);
   }
@@ -44,12 +49,35 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
   @Override
   public void onClick(View view) {
     if (view.getId() == R.id.btAdd) {
-      db.collection("users").add(new User(etName.getText().toString(), etPhone.getText().toString()));
-      etName.setText("");
-      etPhone.setText("");
+      addArticle();
     } else if (view.getId() == R.id.btShow) {
       Intent intent = new Intent(getBaseContext(), ShowDataActivity.class);
       startActivity(intent);
     }
+  }
+
+  private void addArticle() {
+    String title = etTitle.getText().toString().trim();
+    String content = etContent.getText().toString().trim();
+    String imageUrl = etImageUrl.getText().toString().trim();
+
+    if (title.isEmpty()) {
+      etTitle.setError("Nhap tieu de");
+      return;
+    }
+
+    // Tao document moi de lay id tu Firestore, roi luu id vao chinh field "id"
+    DocumentReference ref = db.collection(COLLECTION_ARTICLES).document();
+    Article article = new Article(ref.getId(), title, content, imageUrl);
+
+    ref.set(article)
+            .addOnSuccessListener(unused -> {
+              Toast.makeText(this, "Da them bai viet", Toast.LENGTH_SHORT).show();
+              etTitle.setText("");
+              etContent.setText("");
+              etImageUrl.setText("");
+            })
+            .addOnFailureListener(e ->
+                    Toast.makeText(this, "Loi: " + e.getMessage(), Toast.LENGTH_LONG).show());
   }
 }
